@@ -24,7 +24,13 @@ private const val TAG = "MainActivity"
 private val jsonFormat = Json { prettyPrint = true }
 
 @Serializable
-data class ButtonProperties(var displayName: String, var soundName: String, var isVisible: Boolean = true, var isGroup: Boolean = false, var groupName: String = "")
+data class ButtonProperties(
+    var displayName: String,
+    var soundName: String,
+    var isVisible: Boolean = true,
+    var isGroup: Boolean = false,
+    var groupName: String = ""
+)
 
 class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
@@ -199,19 +205,6 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         }
     }
 
-    override fun onInit(status: Int) {
-        if (status == TextToSpeech.SUCCESS) {
-            val result = textToSpeech.setLanguage(Locale.US)
-            if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
-                // Handle the error
-            } else {
-                // Text-to-Speech is ready to use
-            }
-        } else {
-            // Initialization failed
-        }
-    }
-
     private fun showEditDialog(buttonProperties: ButtonProperties) {
         val dialog = Dialog(this)
         dialog.setContentView(R.layout.dialog_edit_button)
@@ -287,11 +280,11 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
             if (isGroup) {
                 if (groupName.isNotBlank()) {
+                    buttonProperties.displayName = "" // Set display name to empty string
+                    buttonProperties.soundName = "" // Set sound name to empty string
                     buttonProperties.groupName = groupName
                     buttonProperties.isGroup = true
                     buttonProperties.isVisible = checkboxVisibility.isChecked
-                    buttonProperties.displayName = "" // Set display name to empty when group is checked
-                    buttonProperties.soundName = "" // Set sound name to empty when group is checked
 
                     selectedButton?.apply {
                         text = groupName // Update button text to group name
@@ -374,6 +367,19 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
     private fun speakOut(text: String) {
         textToSpeech.speak(text, TextToSpeech.QUEUE_FLUSH, null, "")
+    }
+
+    override fun onInit(status: Int) {
+        if (status == TextToSpeech.SUCCESS) {
+            val result = textToSpeech.setLanguage(Locale.US)
+            if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
+                // Handle the error
+            } else {
+                // Text-to-Speech is ready to use
+            }
+        } else {
+            // Initialization failed
+        }
     }
 
     override fun onDestroy() {

@@ -11,43 +11,31 @@
         android:orientation="horizontal"
         android:layout_marginBottom="16dp">
 
-        <EditText
-            android:id="@+id/editText"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:hint="Enter new text here" />
-
         <Button
             android:id="@+id/editModeButton"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Edit" />
 
-        <Button
-            android:id="@+id/changeTextButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Update Button" />
 
     </LinearLayout>
-
-    <Button
-        android:id="@+id/button3"
-        android:layout_width="71dp"
-        android:layout_height="wrap_content"
-        android:layout_below="@id/editText"
-        android:layout_centerHorizontal="true"
-        android:layout_marginTop="20dp"
-        android:text="Cat" />
 
     <Button
         android:id="@+id/button1"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_below="@id/editText"
+        android:layout_below="@id/editModeButton"
         android:layout_centerHorizontal="true"
         android:layout_marginTop="20dp"
         android:text="Dog" />
+
+    <Button
+        android:id="@+id/button2"
+        android:layout_width="71dp"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/button1"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="20dp"
+        android:text="Cat" />
 
 </LinearLayout>

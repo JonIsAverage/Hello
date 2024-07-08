@@ -11,10 +11,16 @@ import android.widget.*
 import android.view.View
 import android.app.Dialog
 
+data class ButtonProperties(var displayName: String, var soundName: String)
+
 class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     private var isEditMode = false
     private var selectedButton: Button? = null
-    private var buttonSoundName: String? = null
+
+    /* Declare Button Properties Below */
+    private var button1Properties = ButtonProperties("Button 1", "Sound1")
+    private var button2Properties = ButtonProperties("Button 2", "Sound2")
+    /* Declare Button Properties Above */
 
     private lateinit var textToSpeech: TextToSpeech
 
@@ -24,10 +30,11 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         setContentView(R.layout.activity_main)
         textToSpeech = TextToSpeech(this, this)
 
+        /* Declare Buttons Below */
         val button1 = findViewById<Button>(R.id.button1)
-        val editText = findViewById<EditText>(R.id.editText)
-        val button3 = findViewById<Button>(R.id.button3)
-        val changeTextButton = findViewById<Button>(R.id.changeTextButton)
+        val button2 = findViewById<Button>(R.id.button2)
+        /* Declare Buttons Above */
+
         val editModeButton = findViewById<Button>(R.id.editModeButton)
 
         val buttons = arrayOf("Button 1", "Button 3")
@@ -37,40 +44,27 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         button1.setOnClickListener {
             if (isEditMode) {
                 selectedButton = button1
-                showEditDialog()
+                showEditDialog(button1Properties)
                 Toast.makeText(this, "Button 1 selected for editing", Toast.LENGTH_SHORT).show()
             } else {
-                speakOut(buttonSoundName ?: button1.text.toString())
+                speakOut(button1Properties.soundName)
             }
         }
-        button3.setOnClickListener {
+
+        button2.setOnClickListener {
             if (isEditMode) {
-                selectedButton = button3
-                showEditDialog()
-                Toast.makeText(this, "Button 3 selected for editing", Toast.LENGTH_SHORT).show()
+                selectedButton = button2
+                showEditDialog(button2Properties)
+                Toast.makeText(this, "Button 2 selected for editing", Toast.LENGTH_SHORT).show()
             } else {
-                speakOut(buttonSoundName ?: button3.text.toString())
+                speakOut(button2Properties.soundName)
             }
         }
+
         editModeButton.setOnClickListener {
             isEditMode = !isEditMode
             editModeButton.text = if (isEditMode) "Cancel Edit Mode" else "Edit"
             selectedButton = null
-        }
-        changeTextButton.setOnClickListener {
-            val newText = editText.text.toString()
-            if (isEditMode && selectedButton != null) {
-                if (newText.isNotBlank()) {
-                    selectedButton?.text = newText
-                    isEditMode = false
-                    editModeButton.text = "Edit"
-                    selectedButton = null
-                } else {
-                    Toast.makeText(this, "Please enter text", Toast.LENGTH_SHORT).show()
-                }
-            } else {
-                Toast.makeText(this, "Please select a button to edit", Toast.LENGTH_SHORT).show()
-            }
         }
     }
 
@@ -87,7 +81,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         }
     }
 
-    private fun showEditDialog() {
+    private fun showEditDialog(buttonProperties: ButtonProperties) {
         val dialog = Dialog(this)
         dialog.setContentView(R.layout.dialog_edit_button)
 
@@ -95,13 +89,17 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         val soundNameEditText = dialog.findViewById<EditText>(R.id.soundNameEditText)
         val confirmButton = dialog.findViewById<Button>(R.id.confirmButton)
 
+        displayNameEditText.setText(buttonProperties.displayName)
+        soundNameEditText.setText(buttonProperties.soundName)
+
         confirmButton.setOnClickListener {
             val displayName = displayNameEditText.text.toString()
             val soundName = soundNameEditText.text.toString()
 
             if (displayName.isNotBlank() && soundName.isNotBlank()) {
+                buttonProperties.displayName = displayName
+                buttonProperties.soundName = soundName
                 selectedButton?.text = displayName
-                buttonSoundName = soundName
                 dialog.dismiss()
                 isEditMode = false
                 findViewById<Button>(R.id.editModeButton).text = "Edit"

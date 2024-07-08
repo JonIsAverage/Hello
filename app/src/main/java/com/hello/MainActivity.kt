@@ -1,27 +1,37 @@
 package com.hello
 
-import android.os.Bundle
-import androidx.activity.ComponentActivity
-import android.speech.tts.TextToSpeech
-import java.util.Locale
-import android.widget.Button
-import android.widget.EditText
-import android.widget.Toast
-import android.view.View
 import android.app.Dialog
+import android.os.Bundle
+import android.speech.tts.TextToSpeech
 import android.util.DisplayMetrics
-import android.widget.GridLayout
+import android.view.View
+import android.widget.Button
 import android.widget.CheckBox
+import android.widget.EditText
+import android.widget.GridLayout
+import android.widget.Toast
+import androidx.activity.ComponentActivity
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
+import java.io.File
+import java.util.Locale
+import kotlinx.serialization.encodeToString
+import android.util.Log
 
+private const val TAG = "MainActivity"
 
+private val jsonFormat = Json { prettyPrint = true }
+
+@Serializable
 data class ButtonProperties(var displayName: String, var soundName: String, var isVisible: Boolean = true)
 
 class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
-    private lateinit var buttonPropertiesList: Array<ButtonProperties>
-
     private var isEditMode = false
     private var selectedButton: Button? = null
+    private lateinit var textToSpeech: TextToSpeech
+    private lateinit var buttonPropertiesList: MutableList<ButtonProperties>
+    private val buttonPropertiesFile by lazy { File(filesDir, "button_properties.json") }
 
     /* Declare Button Properties Below */
     private var button1Properties = ButtonProperties("", "Unassigned")
@@ -39,14 +49,12 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     private var button13Properties = ButtonProperties("", "Unassigned")
     /* Declare Button Properties Above */
 
-    private lateinit var textToSpeech: TextToSpeech
-
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
         setContentView(R.layout.activity_main)
         textToSpeech = TextToSpeech(this, this)
+
+        buttonPropertiesList = loadButtonProperties()
 
         // Get screen dimensions in pixels
         val displayMetrics = resources.displayMetrics
@@ -85,8 +93,8 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         val button11 = findViewById<Button>(R.id.button11)
         val button12 = findViewById<Button>(R.id.button12)
         val button13 = findViewById<Button>(R.id.button13)
+        val buttons = listOf(button1, button2, button3, button4, button5, button6, button7, button8, button9, button10, button11, button12, button13)
         /* Declare Buttons */
-
 
         /* Declare Button Attributes */
         val metrics: DisplayMetrics = resources.displayMetrics
@@ -101,12 +109,10 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         val minButtonSize = resources.getDimensionPixelSize(R.dimen.min_button_size) // Example minimum size from resources
         val finalButtonSize = buttonSize.coerceAtMost(minButtonSize)
 
-        val buttons = listOf<Button>(button1, button2, button3, button4, button5, button6, button7, button8, button9, button10, button11, button12, button13)
-
-        buttons.forEach { button ->
+        buttons.forEachIndexed { index, button ->
             val buttonLayoutParams = GridLayout.LayoutParams(
-                GridLayout.spec(GridLayout.UNDEFINED, 1f), // Row span (1)
-                GridLayout.spec(GridLayout.UNDEFINED, 1f) // Column span (1)
+                GridLayout.spec(GridLayout.UNDEFINED, 1f),
+                GridLayout.spec(GridLayout.UNDEFINED, 1f)
             )
 
             buttonLayoutParams.width = finalButtonSize
@@ -114,25 +120,23 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             button.layoutParams = buttonLayoutParams
             button.textSize = textSize
             button.setPadding(paddingPixels, paddingPixels, paddingPixels, paddingPixels)
+
+            // Load button properties
+            val properties = buttonPropertiesList.getOrElse(index) { ButtonProperties("", "Unassigned") }
+            button.text = properties.displayName
+            button.visibility = if (properties.isVisible) View.VISIBLE else View.INVISIBLE
+
+            button.setOnClickListener {
+                if (isEditMode) {
+                    selectedButton = button
+                    showEditDialog(properties)
+                } else {
+                    speakOut(properties.soundName)
+                }
+            }
         }
 
-
-        button1.visibility = View.VISIBLE
-        button2.visibility = View.VISIBLE
-        button3.visibility = View.VISIBLE
-        button4.visibility = View.VISIBLE
-        button5.visibility = View.VISIBLE
-        button6.visibility = View.VISIBLE
-        button7.visibility = View.INVISIBLE
-        button8.visibility = View.INVISIBLE
-        button9.visibility = View.INVISIBLE
-        button10.visibility = View.INVISIBLE
-        button11.visibility = View.INVISIBLE
-        button12.visibility = View.INVISIBLE
-        button13.visibility = View.INVISIBLE
         /* Declare Button Attributes */
-
-        val editModeButton = findViewById<Button>(R.id.editModeButton)
 
         button1.setOnClickListener {
             if (isEditMode) {
@@ -251,9 +255,19 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             }
         }
 
+        val editModeButton = findViewById<Button>(R.id.editModeButton)
         editModeButton.setOnClickListener {
             isEditMode = !isEditMode
-            editModeButton.text = if (isEditMode) "Cancel Edit Mode" else "Edit"
+            if (isEditMode) {
+                editModeButton.text = "Cancel Edit Mode"
+                buttons.forEach { it.visibility = View.VISIBLE }
+            } else {
+                editModeButton.text = "Edit"
+                buttons.forEachIndexed { index, button ->
+                    button.visibility = if (buttonPropertiesList[index].isVisible) View.VISIBLE else View.INVISIBLE
+                }
+                saveButtonProperties()
+            }
             selectedButton = null
         }
     }
@@ -282,21 +296,20 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
         displayNameEditText.setText(buttonProperties.displayName)
         soundNameEditText.setText(buttonProperties.soundName)
+        checkboxVisibility.isChecked = buttonProperties.isVisible
 
-        checkboxVisibility.isChecked = selectedButton?.visibility == View.VISIBLE
-
-        displayNameEditText.setOnFocusChangeListener { _, hasFocus ->
+        displayNameEditText.setOnFocusChangeListener { v, hasFocus ->
             if (hasFocus) {
-                displayNameEditText.post {
-                    displayNameEditText.selectAll()
+                (v as EditText).post {
+                    v.selectAll()
                 }
             }
         }
 
-        soundNameEditText.setOnFocusChangeListener { _, hasFocus ->
+        soundNameEditText.setOnFocusChangeListener { v, hasFocus ->
             if (hasFocus) {
-                soundNameEditText.post {
-                    soundNameEditText.selectAll()
+                (v as EditText).post {
+                    v.selectAll()
                 }
             }
         }
@@ -308,24 +321,50 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             if (!checkboxVisibility.isChecked || (displayName.isNotBlank() && soundName.isNotBlank())) {
                 buttonProperties.displayName = displayName
                 buttonProperties.soundName = soundName
-                selectedButton?.text = displayName
+                buttonProperties.isVisible = checkboxVisibility.isChecked
 
-                if (checkboxVisibility.isChecked) {
-                    selectedButton?.visibility = View.VISIBLE
-                } else {
-                    selectedButton?.visibility = View.INVISIBLE
+                selectedButton?.apply {
+                    text = displayName
+                    visibility = if (buttonProperties.isVisible) View.VISIBLE else View.INVISIBLE
                 }
 
                 dialog.dismiss()
                 isEditMode = false
                 findViewById<Button>(R.id.editModeButton).text = "Edit"
                 selectedButton = null
+
+                saveButtonProperties()
             } else {
                 Toast.makeText(this, "Please fill in both fields", Toast.LENGTH_SHORT).show()
             }
         }
 
         dialog.show()
+    }
+
+    private fun saveButtonProperties() {
+        try {
+            val json = jsonFormat.encodeToString(buttonPropertiesList)
+            buttonPropertiesFile.writeText(json)
+            Log.d(TAG, "Button properties saved: $json")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error saving button properties", e)
+        }
+    }
+
+    private fun loadButtonProperties(): MutableList<ButtonProperties> {
+        return try {
+            if (buttonPropertiesFile.exists()) {
+                val json = buttonPropertiesFile.readText()
+                Log.d(TAG, "Button properties loaded: $json")
+                jsonFormat.decodeFromString(json)
+            } else {
+                MutableList(13) { ButtonProperties("", "Unassigned", it < 6) }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error loading button properties", e)
+            MutableList(13) { ButtonProperties("", "Unassigned", it < 6) }
+        }
     }
 
     private fun speakOut(text: String) {

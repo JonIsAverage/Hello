@@ -37,10 +37,6 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
         val editModeButton = findViewById<Button>(R.id.editModeButton)
 
-        val buttons = arrayOf("Button 1", "Button 3")
-        val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, buttons)
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-
         button1.setOnClickListener {
             if (isEditMode) {
                 selectedButton = button1
@@ -91,6 +87,22 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
         displayNameEditText.setText(buttonProperties.displayName)
         soundNameEditText.setText(buttonProperties.soundName)
+
+        displayNameEditText.setOnFocusChangeListener { _, hasFocus ->
+            if (hasFocus) {
+                displayNameEditText.post {
+                    displayNameEditText.selectAll()
+                }
+            }
+        }
+
+        soundNameEditText.setOnFocusChangeListener { _, hasFocus ->
+            if (hasFocus) {
+                soundNameEditText.post {
+                    soundNameEditText.selectAll()
+                }
+            }
+        }
 
         confirmButton.setOnClickListener {
             val displayName = displayNameEditText.text.toString()

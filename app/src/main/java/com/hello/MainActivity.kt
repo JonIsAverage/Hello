@@ -6,6 +6,7 @@ import android.speech.tts.TextToSpeech
 import android.util.DisplayMetrics
 import android.util.Log
 import android.view.View
+import android.view.WindowManager
 import android.widget.Button
 import android.widget.CheckBox
 import android.widget.EditText
@@ -13,7 +14,6 @@ import android.widget.GridLayout
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.io.File
@@ -24,7 +24,7 @@ private const val TAG = "MainActivity"
 private val jsonFormat = Json { prettyPrint = true }
 
 @Serializable
-data class ButtonProperties(var displayName: String, var soundName: String, var isVisible: Boolean = true)
+data class ButtonProperties(var displayName: String, var soundName: String, var isVisible: Boolean = true, var isGroup: Boolean = false, var groupName: String = "")
 
 class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
@@ -180,7 +180,12 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
             // Load button properties
             val properties = buttonPropertiesList.getOrElse(index) { ButtonProperties("", "Unassigned") }
-            button.text = properties.displayName
+            if (properties.isGroup) {
+                button.text = properties.groupName // Display group name if it's a group button
+            } else {
+                button.text = properties.displayName // Display display name if it's not a group button
+            }
+
             button.visibility = if (properties.isVisible || isEditMode) View.VISIBLE else View.INVISIBLE
 
             button.setOnClickListener {
@@ -211,15 +216,34 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         val dialog = Dialog(this)
         dialog.setContentView(R.layout.dialog_edit_button)
 
+        // Adjust dialog width and height
+        val layoutParams = WindowManager.LayoutParams()
+        layoutParams.copyFrom(dialog.window?.attributes)
+        val displayMetrics = resources.displayMetrics
+        val dialogWidth = (displayMetrics.widthPixels * 0.8).toInt() // Adjust as needed
+        val dialogHeight = WindowManager.LayoutParams.WRAP_CONTENT
+        layoutParams.width = dialogWidth
+        layoutParams.height = dialogHeight
+        dialog.window?.attributes = layoutParams
+
         val displayNameEditText = dialog.findViewById<EditText>(R.id.displayNameEditText)
         val soundNameEditText = dialog.findViewById<EditText>(R.id.soundNameEditText)
+        val groupNameEditText = dialog.findViewById<EditText>(R.id.groupNameEditText)
         val confirmButton = dialog.findViewById<Button>(R.id.confirmButton)
+        val checkboxGroup = dialog.findViewById<CheckBox>(R.id.checkboxGroup)
         val checkboxVisibility = dialog.findViewById<CheckBox>(R.id.checkboxVisibility)
 
+        // Set initial values
         displayNameEditText.setText(buttonProperties.displayName)
         soundNameEditText.setText(buttonProperties.soundName)
+        groupNameEditText.setText(buttonProperties.groupName)
+        checkboxGroup.isChecked = buttonProperties.isGroup
         checkboxVisibility.isChecked = buttonProperties.isVisible
 
+        // Initial visibility setup based on checkbox state
+        setVisibilityBasedOnGroupCheckbox(dialog, buttonProperties.isGroup)
+
+        // Focus change listeners
         displayNameEditText.setOnFocusChangeListener { v, hasFocus ->
             if (hasFocus) {
                 (v as EditText).post {
@@ -236,31 +260,91 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             }
         }
 
+        groupNameEditText.setOnFocusChangeListener { v, hasFocus ->
+            if (hasFocus) {
+                (v as EditText).post {
+                    v.selectAll()
+                }
+            }
+        }
+
+        // Checkbox listeners
+        checkboxGroup.setOnCheckedChangeListener { _, isChecked ->
+            setVisibilityBasedOnGroupCheckbox(dialog, isChecked)
+            if (isChecked) {
+                // Clear display name and sound name when group is checked
+                displayNameEditText.setText("")
+                soundNameEditText.setText("")
+            }
+        }
+
+        // Confirm button click listener
         confirmButton.setOnClickListener {
             val displayName = displayNameEditText.text.toString()
             val soundName = soundNameEditText.text.toString()
+            val groupName = groupNameEditText.text.toString()
+            val isGroup = checkboxGroup.isChecked
 
-            if (!checkboxVisibility.isChecked || (displayName.isNotBlank() && soundName.isNotBlank())) {
-                buttonProperties.displayName = displayName
-                buttonProperties.soundName = soundName
-                buttonProperties.isVisible = checkboxVisibility.isChecked
+            if (isGroup) {
+                if (groupName.isNotBlank()) {
+                    buttonProperties.groupName = groupName
+                    buttonProperties.isGroup = true
+                    buttonProperties.isVisible = checkboxVisibility.isChecked
+                    buttonProperties.displayName = "" // Set display name to empty when group is checked
+                    buttonProperties.soundName = "" // Set sound name to empty when group is checked
 
-                selectedButton?.apply {
-                    text = displayName
-                    visibility = if (buttonProperties.isVisible) View.VISIBLE else View.INVISIBLE
-                }
+                    selectedButton?.apply {
+                        text = groupName // Update button text to group name
+                        visibility = if (buttonProperties.isVisible) View.VISIBLE else View.INVISIBLE
+                    }
 
-                dialog.dismiss()
-                if (!isEditMode) {
-                    saveButtonProperties()
-                    initializeButtons()
+                    dialog.dismiss()
+                    if (!isEditMode) {
+                        saveButtonProperties()
+                        initializeButtons()
+                    }
+                } else {
+                    Toast.makeText(this, "Group Name cannot be empty", Toast.LENGTH_SHORT).show()
                 }
             } else {
-                Toast.makeText(this, "Please fill in both fields", Toast.LENGTH_SHORT).show()
+                if (!checkboxVisibility.isChecked || (displayName.isNotBlank() && soundName.isNotBlank())) {
+                    buttonProperties.displayName = displayName
+                    buttonProperties.soundName = soundName
+                    buttonProperties.isVisible = checkboxVisibility.isChecked
+
+                    selectedButton?.apply {
+                        text = displayName // Update button text to display name
+                        visibility = if (buttonProperties.isVisible) View.VISIBLE else View.INVISIBLE
+                    }
+
+                    dialog.dismiss()
+                    if (!isEditMode) {
+                        saveButtonProperties()
+                        initializeButtons()
+                    }
+                } else {
+                    Toast.makeText(this, "Please fill in both fields", Toast.LENGTH_SHORT).show()
+                }
             }
         }
 
         dialog.show()
+    }
+
+    private fun setVisibilityBasedOnGroupCheckbox(dialog: Dialog, isChecked: Boolean) {
+        val displayNameEditText = dialog.findViewById<EditText>(R.id.displayNameEditText)
+        val soundNameEditText = dialog.findViewById<EditText>(R.id.soundNameEditText)
+        val groupNameEditText = dialog.findViewById<EditText>(R.id.groupNameEditText)
+
+        if (isChecked) {
+            displayNameEditText.visibility = View.INVISIBLE
+            soundNameEditText.visibility = View.INVISIBLE
+            groupNameEditText.visibility = View.VISIBLE
+        } else {
+            displayNameEditText.visibility = View.VISIBLE
+            soundNameEditText.visibility = View.VISIBLE
+            groupNameEditText.visibility = View.GONE
+        }
     }
 
     private fun saveButtonProperties() {

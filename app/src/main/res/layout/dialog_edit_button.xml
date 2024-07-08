@@ -1,32 +1,68 @@
-<?xml version="1.0" encoding="utf-8"?>
+<!-- dialog_edit_button.xml -->
+
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:gravity="center"
-    android:orientation="vertical"
+    android:orientation="horizontal"
     android:padding="16dp">
 
-    <EditText
-        android:id="@+id/displayNameEditText"
-        android:layout_width="match_parent"
+    <LinearLayout
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:hint="Display Name" />
+        android:layout_weight="1"
+        android:orientation="vertical">
 
-    <EditText
-        android:id="@+id/soundNameEditText"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:hint="Sound Name" />
+        <CheckBox
+            android:id="@+id/checkboxGroup"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Group?"
+            android:textSize="18sp" />
 
-    <CheckBox
-        android:id="@+id/checkboxVisibility"
+        <CheckBox
+            android:id="@+id/checkboxVisibility"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Visible"
+            android:textSize="18sp" />
+
+        <EditText
+            android:id="@+id/displayNameEditText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Display Name"
+            android:textSize="20sp" />
+
+        <EditText
+            android:id="@+id/soundNameEditText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Sound Name"
+            android:textSize="20sp" />
+
+        <EditText
+            android:id="@+id/groupNameEditText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Group Name"
+            android:textSize="20sp"
+            android:visibility="gone" />
+
+        <Button
+            android:id="@+id/confirmButton"
+            android:layout_width="373dp"
+            android:layout_height="wrap_content"
+            android:layout_gravity="end"
+            android:layout_marginTop="16dp"
+            android:gravity="center"
+            android:text="Confirm" />
+
+    </LinearLayout>
+
+    <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Visible?" />
+        android:orientation="vertical">
 
-    <Button
-        android:id="@+id/confirmButton"
-        android:layout_width="198dp"
-        android:layout_height="wrap_content"
-        android:text="Confirm" />
+    </LinearLayout>
 </LinearLayout>

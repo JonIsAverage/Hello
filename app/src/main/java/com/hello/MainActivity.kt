@@ -11,11 +11,15 @@ import android.view.View
 import android.app.Dialog
 import android.util.DisplayMetrics
 import android.widget.GridLayout
-import androidx.core.content.ContextCompat
+import android.widget.CheckBox
 
-data class ButtonProperties(var displayName: String, var soundName: String)
+
+data class ButtonProperties(var displayName: String, var soundName: String, var isVisible: Boolean = true)
 
 class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
+
+    private lateinit var buttonPropertiesList: Array<ButtonProperties>
+
     private var isEditMode = false
     private var selectedButton: Button? = null
 
@@ -36,6 +40,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     /* Declare Button Properties Above */
 
     private lateinit var textToSpeech: TextToSpeech
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -65,8 +70,6 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
         gridLayout.columnCount = columnCount
         gridLayout.rowCount = rowCount
-
-
 
         /* Declare Buttons */
         val button1 = findViewById<Button>(R.id.button1)
@@ -275,9 +278,12 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         val displayNameEditText = dialog.findViewById<EditText>(R.id.displayNameEditText)
         val soundNameEditText = dialog.findViewById<EditText>(R.id.soundNameEditText)
         val confirmButton = dialog.findViewById<Button>(R.id.confirmButton)
+        val checkboxVisibility = dialog.findViewById<CheckBox>(R.id.checkboxVisibility)
 
         displayNameEditText.setText(buttonProperties.displayName)
         soundNameEditText.setText(buttonProperties.soundName)
+
+        checkboxVisibility.isChecked = selectedButton?.visibility == View.VISIBLE
 
         displayNameEditText.setOnFocusChangeListener { _, hasFocus ->
             if (hasFocus) {
@@ -299,10 +305,17 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             val displayName = displayNameEditText.text.toString()
             val soundName = soundNameEditText.text.toString()
 
-            if (displayName.isNotBlank() && soundName.isNotBlank()) {
+            if (!checkboxVisibility.isChecked || (displayName.isNotBlank() && soundName.isNotBlank())) {
                 buttonProperties.displayName = displayName
                 buttonProperties.soundName = soundName
                 selectedButton?.text = displayName
+
+                if (checkboxVisibility.isChecked) {
+                    selectedButton?.visibility = View.VISIBLE
+                } else {
+                    selectedButton?.visibility = View.INVISIBLE
+                }
+
                 dialog.dismiss()
                 isEditMode = false
                 findViewById<Button>(R.id.editModeButton).text = "Edit"

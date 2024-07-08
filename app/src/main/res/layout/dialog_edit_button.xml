@@ -18,6 +18,12 @@
         android:layout_height="wrap_content"
         android:hint="Sound Name" />
 
+    <CheckBox
+        android:id="@+id/checkboxVisibility"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Visible?" />
+
     <Button
         android:id="@+id/confirmButton"
         android:layout_width="198dp"

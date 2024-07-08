@@ -13,10 +13,11 @@ import android.widget.GridLayout
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.io.File
 import java.util.Locale
-import kotlinx.serialization.encodeToString
 
 private const val TAG = "MainActivity"
 
@@ -32,6 +33,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     private lateinit var textToSpeech: TextToSpeech
     private lateinit var buttonPropertiesList: MutableList<ButtonProperties>
     private val buttonPropertiesFile by lazy { File(filesDir, "button_properties.json") }
+    private lateinit var buttons: List<Button>
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -47,6 +49,16 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         val editModeButton = findViewById<Button>(R.id.editModeButton)
         editModeButton.setOnClickListener {
             toggleEditMode()
+        }
+
+        val editAllButton = findViewById<Button>(R.id.editAllButton)
+        editAllButton.setOnClickListener {
+            editAllMode()
+        }
+
+        val doneButton = findViewById<Button>(R.id.doneButton)
+        doneButton.setOnClickListener {
+            doneEditing()
         }
     }
 
@@ -79,14 +91,46 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         val editModeButton = findViewById<Button>(R.id.editModeButton)
         if (isEditMode) {
             editModeButton.text = "Cancel Edit Mode"
+            findViewById<Button>(R.id.editAllButton).visibility = View.VISIBLE
+            findViewById<Button>(R.id.doneButton).visibility = View.VISIBLE
         } else {
             editModeButton.text = "Edit"
+            findViewById<Button>(R.id.editAllButton).visibility = View.GONE
+            findViewById<Button>(R.id.doneButton).visibility = View.GONE
         }
         selectedButton = null
+        initializeButtons()
+    }
+
+    private fun editAllMode() {
+        isEditMode = true
+        findViewById<Button>(R.id.editModeButton).text = "Cancel Edit Mode"
+        findViewById<Button>(R.id.editAllButton).visibility = View.GONE
+        findViewById<Button>(R.id.doneButton).visibility = View.VISIBLE
+
+        buttons.forEach { button ->
+            val index = buttons.indexOf(button)
+            val properties = buttonPropertiesList.getOrElse(index) { ButtonProperties("", "Unassigned") }
+            button.visibility = View.VISIBLE
+            button.setOnClickListener {
+                selectedButton = button
+                showEditDialog(properties)
+            }
+        }
+    }
+
+    private fun doneEditing() {
+        isEditMode = false
+        findViewById<Button>(R.id.editModeButton).text = "Edit"
+        findViewById<Button>(R.id.editAllButton).visibility = View.VISIBLE
+        findViewById<Button>(R.id.doneButton).visibility = View.GONE
+
+        saveButtonProperties()
+        initializeButtons()
     }
 
     private fun initializeButtons() {
-        val buttons = listOf<Button>(
+        buttons = listOf<Button>(
             findViewById(R.id.button1), findViewById(R.id.button2), findViewById(R.id.button3),
             findViewById(R.id.button4), findViewById(R.id.button5), findViewById(R.id.button6),
             findViewById(R.id.button7), findViewById(R.id.button8), findViewById(R.id.button9),
@@ -137,7 +181,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             // Load button properties
             val properties = buttonPropertiesList.getOrElse(index) { ButtonProperties("", "Unassigned") }
             button.text = properties.displayName
-            button.visibility = if (properties.isVisible) View.VISIBLE else View.INVISIBLE
+            button.visibility = if (properties.isVisible || isEditMode) View.VISIBLE else View.INVISIBLE
 
             button.setOnClickListener {
                 if (isEditMode) {
@@ -207,12 +251,10 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 }
 
                 dialog.dismiss()
-                isEditMode = false
-                findViewById<Button>(R.id.editModeButton).text = "Edit"
-                saveButtonProperties() // Ensure properties are saved after changes
-
-                // Reload buttons after changes
-                initializeButtons()
+                if (!isEditMode) {
+                    saveButtonProperties()
+                    initializeButtons()
+                }
             } else {
                 Toast.makeText(this, "Please fill in both fields", Toast.LENGTH_SHORT).show()
             }

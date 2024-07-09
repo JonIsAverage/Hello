@@ -10,9 +10,11 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -129,11 +131,12 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         super.onDestroy()
     }
 
-    @Preview
     @Composable
+    @Preview
     fun MyApp() {
         val isEditMode = remember { mutableStateOf(false) }
         val selectedButtonProperties = remember { mutableStateOf<ButtonProperties?>(null) }
+        val buttonPropertiesList = remember { mutableStateOf(loadButtonProperties()) }
 
         Column(
             modifier = Modifier
@@ -148,7 +151,10 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (isEditMode.value) {
-                    Button(onClick = { doneEditing() }) {
+                    Button(onClick = {
+                        doneEditing()
+                        isEditMode.value = false
+                    }) {
                         Text("Done")
                     }
                 }
@@ -162,8 +168,8 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                     .fillMaxWidth()
                     .weight(1f) // Occupy remaining space after the top row
             ) {
-                items(buttonPropertiesList.size) { index ->
-                    val properties = buttonPropertiesList[index]
+                items(buttonPropertiesList.value.size) { index ->
+                    val properties = buttonPropertiesList.value[index]
                     if (properties.isVisible || isEditMode.value) {
                         Box(
                             modifier = Modifier
@@ -200,6 +206,12 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                     buttonProperties = selectedButtonProperties.value!!,
                     onDismiss = { selectedButtonProperties.value = null },
                     onConfirm = { updatedProperties ->
+                        val index = buttonPropertiesList.value.indexOfFirst { it == selectedButtonProperties.value }
+                        if (index != -1) {
+                            buttonPropertiesList.value = buttonPropertiesList.value.toMutableList().apply {
+                                set(index, updatedProperties)
+                            }
+                        }
                         selectedButtonProperties.value = null
                         saveButtonProperties()
                     }
@@ -226,18 +238,6 @@ fun EditButtonDialog(
         title = { Text("Edit Button") },
         text = {
             Column {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(checked = isGroup, onCheckedChange = { isChecked ->
-                        isGroup = isChecked
-                    })
-                    Text("Group?")
-                }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(checked = isVisible, onCheckedChange = { isChecked ->
-                        isVisible = isChecked
-                    })
-                    Text("Visible")
-                }
                 if (!isGroup) {
                     BasicTextField(
                         value = displayName,
@@ -250,6 +250,10 @@ fun EditButtonDialog(
                             innerTextField()
                         }
                     )
+
+                    // Add space between Display Name and Sound Name
+                    Spacer(modifier = Modifier.height(8.dp))
+
                     BasicTextField(
                         value = soundName,
                         onValueChange = { newValue -> soundName = newValue },
@@ -273,6 +277,28 @@ fun EditButtonDialog(
                             innerTextField()
                         }
                     )
+                }
+
+                // Add spacing between the text fields and checkboxes
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(checked = isGroup, onCheckedChange = { isChecked ->
+                            isGroup = isChecked
+                        })
+                        Text("Group?")
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(checked = isVisible, onCheckedChange = { isChecked ->
+                            isVisible = isChecked
+                        })
+                        Text("Visible")
+                    }
                 }
             }
         },

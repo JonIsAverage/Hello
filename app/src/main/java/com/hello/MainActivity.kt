@@ -36,7 +36,7 @@ private const val TAG = "MainActivity"
 @Serializable
 data class ButtonProperties(
     var buttonId: Int = 0,
-    var hierarchyId: Int = 1,
+    var hierarchyId: Int = 1, // Default hierarchyId set to 1
     var displayName: String = "",
     var soundName: String = "",
     var isVisible: Boolean = true,
@@ -44,6 +44,7 @@ data class ButtonProperties(
     var groupName: String = "",
     var parentButtonId: Int = 0
 )
+
 
 class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
@@ -167,7 +168,7 @@ fun MyApp(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(bottom = 8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween, // Ensures buttons are spaced apart
+            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Button(
@@ -239,9 +240,8 @@ fun MyApp(
         }
         if (navigateToSecondScreen.value) {
             selectedButtonProperties.value?.let { properties ->
-                val groupButtons = buttonPropertiesList.filter { it.groupName == properties.groupName }
                 SecondScreen(
-                    buttonPropertiesList = groupButtons.toMutableList(),
+                    buttonPropertiesList = buttonPropertiesList,
                     parentButtonId = properties.buttonId,
                     navigateToStartup = navigateToStartup // Pass the navigateToStartup function
                 )
@@ -359,37 +359,64 @@ fun SecondScreen(
     parentButtonId: Int,
     navigateToStartup: () -> Unit // Function to navigate back to the startup page
 ) {
-    // Filter button properties based on parentButtonId
-    val filteredButtons = buttonPropertiesList.filter { it.parentButtonId == parentButtonId }
+    // Filter button properties based on parentButtonId and hierarchyId
+    val filteredButtons = buttonPropertiesList.filter {
+        it.parentButtonId == parentButtonId && it.hierarchyId == 2
+    }
+
+    // Check if filteredButtons is empty, generate new buttons if so
+    if (filteredButtons.isEmpty()) {
+        val newButtons = generateNewButtons(parentButtonId)
+        buttonPropertiesList.addAll(newButtons)
+    }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        for (properties in filteredButtons) {
-            Box(
-                modifier = Modifier
-                    .padding(4.dp)
-                    .aspectRatio(1f)
-                    .fillMaxWidth()
-                    .clickable {
-                        // Handle navigation or any other action on button click if needed
-                    }
-            ) {
-                Button(
-                    onClick = {
-                        // Handle button click as needed
-                    },
+        LazyVerticalGrid(
+            columns = GridCells.Adaptive(minSize = 100.dp),
+            modifier = Modifier.fillMaxSize()
+        ) {
+            items(filteredButtons.size) { index ->
+                val properties = filteredButtons[index]
+                Box(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color.LightGray, shape = RectangleShape), // Background color and shape
-                    shape = RectangleShape, // Button shape
-                    content = {
-                        Text(
-                            text = properties.displayName,
-                            color = Color.White, // Text color
-                            textAlign = TextAlign.Center
-                        )
-                    }
-                )
+                        .padding(4.dp)
+                        .aspectRatio(1f)
+                        .fillMaxWidth()
+                        .clickable {
+                            // Handle navigation or any other action on button click if needed
+                        }
+                ) {
+                    Button(
+                        onClick = {
+                            // Handle button click as needed
+                        },
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.LightGray, shape = RectangleShape), // Background color and shape
+                        shape = RectangleShape, // Button shape
+                        content = {
+                            Text(
+                                text = properties.displayName,
+                                color = Color.White, // Text color
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    )
+                }
             }
         }
+    }
+}
+
+// Function to generate new buttons if none exist for the parentButtonId and hierarchyId 2
+private fun generateNewButtons(parentButtonId: Int): List<ButtonProperties> {
+    return List(24) { index ->
+        ButtonProperties(
+            buttonId = index + 1, // Example: You may need to adjust this logic based on your actual requirements
+            hierarchyId = 2,
+            displayName = "Button ${index + 1}",
+            parentButtonId = parentButtonId
+            // Add other default values as needed
+        )
     }
 }

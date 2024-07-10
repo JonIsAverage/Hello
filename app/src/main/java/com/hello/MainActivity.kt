@@ -58,7 +58,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
     private var isEditMode by mutableStateOf(false)
     private lateinit var textToSpeech: TextToSpeech
-    private var buttonPropertiesList by mutableStateOf(MutableList(24) { ButtonProperties("", "Unassigned") })
+    private var buttonPropertiesList by mutableStateOf(MutableList(24) { ButtonProperties("", "") })
     private val buttonPropertiesFile by lazy { File(filesDir, "button_properties.json") }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -96,11 +96,11 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 Log.d(TAG, "Button properties loaded: $json")
                 jsonFormat.decodeFromString(json)
             } else {
-                MutableList(24) { ButtonProperties("", "Unassigned") }
+                MutableList(24) { ButtonProperties("", "") }
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error loading button properties", e)
-            MutableList(24) { ButtonProperties("", "Unassigned") }
+            MutableList(24) { ButtonProperties("", "") }
         }
     }
 
@@ -180,7 +180,7 @@ fun MyApp(
                             onClick = {
                                 if (isEditMode) {
                                     selectedButtonProperties.value = properties
-                                } else {
+                                } else if (!properties.isGroup) {
                                     speakOut(properties.soundName)
                                 }
                             },
@@ -215,6 +215,7 @@ fun MyApp(
         }
     }
 }
+
 @Composable
 fun EditButtonDialog(
     buttonProperties: ButtonProperties,

@@ -58,32 +58,30 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
     private var isEditMode by mutableStateOf(false)
     private lateinit var textToSpeech: TextToSpeech
-    private lateinit var buttonPropertiesList: MutableList<ButtonProperties>
+    private var buttonPropertiesList by mutableStateOf(MutableList(24) { ButtonProperties("", "Unassigned") })
     private val buttonPropertiesFile by lazy { File(filesDir, "button_properties.json") }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        buttonPropertiesList = loadButtonProperties()
         setContent {
-            MyApp()
+            MyApp(
+                buttonPropertiesList = buttonPropertiesList,
+                isEditMode = isEditMode,
+                toggleEditMode = { isEditMode = !isEditMode },
+                doneEditing = {
+                    saveButtonProperties(buttonPropertiesList)
+                    isEditMode = false
+                },
+                speakOut = { text -> speakOut(text) }
+            )
         }
         textToSpeech = TextToSpeech(this, this)
-
-        // Load button properties from JSON
-        buttonPropertiesList = loadButtonProperties()
     }
 
-    private fun toggleEditMode() {
-        isEditMode = !isEditMode
-    }
-
-    private fun doneEditing() {
-        saveButtonProperties() // Save changes to JSON
-        isEditMode = false // Turn off edit mode
-    }
-
-    private fun saveButtonProperties() {
+    private fun saveButtonProperties(propertiesList: List<ButtonProperties>) {
         try {
-            val json = jsonFormat.encodeToString(buttonPropertiesList)
+            val json = jsonFormat.encodeToString(propertiesList)
             buttonPropertiesFile.writeText(json)
             Log.d(TAG, "Button properties saved: $json")
         } catch (e: Exception) {
@@ -130,93 +128,89 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         }
         super.onDestroy()
     }
+}
+@Composable
+fun MyApp(
+    buttonPropertiesList: MutableList<ButtonProperties>,
+    isEditMode: Boolean,
+    toggleEditMode: () -> Unit,
+    doneEditing: () -> Unit,
+    speakOut: (String) -> Unit
+) {
+    val selectedButtonProperties = remember { mutableStateOf<ButtonProperties?>(null) }
 
-    @Composable
-    @Preview
-    fun MyApp() {
-        val isEditMode = remember { mutableStateOf(false) }
-        val selectedButtonProperties = remember { mutableStateOf<ButtonProperties?>(null) }
-        val buttonPropertiesList = remember { mutableStateOf(loadButtonProperties()) }
-
-        Column(
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(8.dp)
+    ) {
+        Row(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(8.dp)
+                .fillMaxWidth()
+                .padding(bottom = 8.dp),
+            horizontalArrangement = Arrangement.End,
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 8.dp), // Add some bottom padding to separate from LazyVerticalGrid
-                horizontalArrangement = Arrangement.End, // Align buttons to the end (right) of the row
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                if (isEditMode.value) {
-                    Button(onClick = {
-                        doneEditing()
-                        isEditMode.value = false
-                    }) {
-                        Text("Done")
-                    }
-                }
-                Button(onClick = { isEditMode.value = !isEditMode.value }) {
-                    Text(text = if (isEditMode.value) "Cancel Edit Mode" else "Edit")
+            if (isEditMode) {
+                Button(onClick = doneEditing) {
+                    Text("Done")
                 }
             }
-            LazyVerticalGrid(
-                columns = GridCells.Adaptive(minSize = 100.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f) // Occupy remaining space after the top row
-            ) {
-                items(buttonPropertiesList.value.size) { index ->
-                    val properties = buttonPropertiesList.value[index]
-                    if (properties.isVisible || isEditMode.value) {
-                        Box(
-                            modifier = Modifier
-                                .padding(4.dp)
-                                .aspectRatio(1f)
-                                .fillMaxWidth()
-                        ) {
-                            Button(
-                                onClick = {
-                                    if (isEditMode.value) {
-                                        selectedButtonProperties.value = properties
-                                    } else {
-                                        speakOut(properties.soundName)
-                                    }
-                                },
-                                colors = ButtonDefaults.buttonColors(containerColor = Color.LightGray),
-                                modifier = Modifier
-                                    .fillMaxSize() // Fill the entire space of the Box
-                                    .background(if (properties.isVisible) Color.LightGray else Color.LightGray),
-                                shape = RectangleShape,
-                                content = {
-                                    Text(
-                                        text = if (properties.isGroup) properties.groupName else properties.displayName,
-                                        color = Color.White // Set text color here
-                                    )
+            Button(onClick = toggleEditMode) {
+                Text(text = if (isEditMode) "Cancel Edit Mode" else "Edit")
+            }
+        }
+        LazyVerticalGrid(
+            columns = GridCells.Adaptive(minSize = 100.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+        ) {
+            items(buttonPropertiesList.size) { index ->
+                val properties = buttonPropertiesList[index]
+                if (properties.isVisible || isEditMode) {
+                    Box(
+                        modifier = Modifier
+                            .padding(4.dp)
+                            .aspectRatio(1f)
+                            .fillMaxWidth()
+                    ) {
+                        Button(
+                            onClick = {
+                                if (isEditMode) {
+                                    selectedButtonProperties.value = properties
+                                } else {
+                                    speakOut(properties.soundName)
                                 }
-                            )
-                        }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color.LightGray),
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(if (properties.isVisible) Color.LightGray else Color.LightGray),
+                            shape = RectangleShape,
+                            content = {
+                                Text(
+                                    text = if (properties.isGroup) properties.groupName else properties.displayName,
+                                    color = Color.White
+                                )
+                            }
+                        )
                     }
                 }
             }
-            if (selectedButtonProperties.value != null) {
-                EditButtonDialog(
-                    buttonProperties = selectedButtonProperties.value!!,
-                    onDismiss = { selectedButtonProperties.value = null },
-                    onConfirm = { updatedProperties ->
-                        val index = buttonPropertiesList.value.indexOfFirst { it == selectedButtonProperties.value }
-                        if (index != -1) {
-                            buttonPropertiesList.value = buttonPropertiesList.value.toMutableList().apply {
-                                set(index, updatedProperties)
-                            }
-                        }
-                        selectedButtonProperties.value = null
-                        saveButtonProperties()
+        }
+        if (selectedButtonProperties.value != null) {
+            EditButtonDialog(
+                buttonProperties = selectedButtonProperties.value!!,
+                onDismiss = { selectedButtonProperties.value = null },
+                onConfirm = { updatedProperties ->
+                    val index = buttonPropertiesList.indexOfFirst { it == selectedButtonProperties.value }
+                    if (index != -1) {
+                        buttonPropertiesList[index] = updatedProperties
                     }
-                )
-            }
+                    selectedButtonProperties.value = null
+                }
+            )
         }
     }
 }
@@ -250,10 +244,7 @@ fun EditButtonDialog(
                             innerTextField()
                         }
                     )
-
-                    // Add space between Display Name and Sound Name
                     Spacer(modifier = Modifier.height(8.dp))
-
                     BasicTextField(
                         value = soundName,
                         onValueChange = { newValue -> soundName = newValue },
@@ -278,10 +269,7 @@ fun EditButtonDialog(
                         }
                     )
                 }
-
-                // Add spacing between the text fields and checkboxes
                 Spacer(modifier = Modifier.height(16.dp))
-
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween,

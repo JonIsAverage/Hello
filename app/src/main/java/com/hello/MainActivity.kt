@@ -6,59 +6,50 @@ import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.TextField
+import androidx.compose.material3.AlertDialog
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.io.File
-import java.util.Locale
+import java.util.*
 
 private const val TAG = "MainActivity"
 
-private val jsonFormat = Json { prettyPrint = true }
-
 @Serializable
 data class ButtonProperties(
-    var displayName: String,
-    var soundName: String,
+    var buttonId: Int = 0,
+    var hierarchyId: Int = 1,
+    var displayName: String = "",
+    var soundName: String = "",
     var isVisible: Boolean = true,
     var isGroup: Boolean = false,
-    var groupName: String = ""
+    var groupName: String = "",
+    var parentButtonId: Int = 0
 )
 
 class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
     private var isEditMode by mutableStateOf(false)
     private lateinit var textToSpeech: TextToSpeech
-    private var buttonPropertiesList by mutableStateOf(MutableList(24) { ButtonProperties("", "") })
+    private var buttonPropertiesList by mutableStateOf(mutableListOf<ButtonProperties>())
     private val buttonPropertiesFile by lazy { File(filesDir, "button_properties.json") }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -81,7 +72,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
     private fun saveButtonProperties(propertiesList: List<ButtonProperties>) {
         try {
-            val json = jsonFormat.encodeToString(propertiesList)
+            val json = Json.encodeToString(propertiesList)
             buttonPropertiesFile.writeText(json)
             Log.d(TAG, "Button properties saved: $json")
         } catch (e: Exception) {
@@ -94,13 +85,33 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             if (buttonPropertiesFile.exists()) {
                 val json = buttonPropertiesFile.readText()
                 Log.d(TAG, "Button properties loaded: $json")
-                jsonFormat.decodeFromString(json)
+                Json.decodeFromString(json)
             } else {
-                MutableList(24) { ButtonProperties("", "") }
+                MutableList(24) { index ->
+                    ButtonProperties(
+                        buttonId = index + 1,
+                        hierarchyId = 1,
+                        displayName = "",
+                        soundName = "",
+                        isVisible = true,
+                        isGroup = false,
+                        groupName = ""
+                    )
+                }
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error loading button properties", e)
-            MutableList(24) { ButtonProperties("", "") }
+            MutableList(24) { index ->
+                ButtonProperties(
+                    buttonId = index + 1,
+                    hierarchyId = 1,
+                    displayName = "",
+                    soundName = "",
+                    isVisible = true,
+                    isGroup = false,
+                    groupName = ""
+                )
+            }
         }
     }
 
@@ -138,6 +149,7 @@ fun MyApp(
     doneEditing: () -> Unit,
     speakOut: (String) -> Unit
 ) {
+    val navigateToSecondScreen = remember { mutableStateOf(false) }
     val selectedButtonProperties = remember { mutableStateOf<ButtonProperties?>(null) }
 
     Column(
@@ -175,6 +187,15 @@ fun MyApp(
                             .padding(4.dp)
                             .aspectRatio(1f)
                             .fillMaxWidth()
+                            .clickable {
+                                if (properties.isGroup) {
+                                    // Navigate to second screen for this group
+                                    navigateToSecondScreen.value = true
+                                    selectedButtonProperties.value = properties
+                                } else {
+                                    // Handle other actions or navigation if needed
+                                }
+                            }
                     ) {
                         Button(
                             onClick = {
@@ -184,15 +205,15 @@ fun MyApp(
                                     speakOut(properties.soundName)
                                 }
                             },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color.LightGray),
                             modifier = Modifier
                                 .fillMaxSize()
-                                .background(if (properties.isVisible) Color.LightGray else Color.LightGray),
+                                .background(if (properties.isVisible) Color.LightGray else Color.Gray),
                             shape = RectangleShape,
                             content = {
                                 Text(
                                     text = if (properties.isGroup) properties.groupName else properties.displayName,
-                                    color = Color.White
+                                    color = Color.White,
+                                    textAlign = TextAlign.Center
                                 )
                             }
                         )
@@ -212,6 +233,17 @@ fun MyApp(
                     selectedButtonProperties.value = null
                 }
             )
+        }
+        if (navigateToSecondScreen.value) {
+            selectedButtonProperties.value?.let { properties ->
+                // Filter the list to find buttons with the same group name
+                val groupButtons = buttonPropertiesList.filter { it.groupName == properties.groupName }
+                // Navigate to second screen with the group buttons
+                SecondScreen(
+                    buttonPropertiesList = groupButtons.toMutableList(),
+                    parentButtonId = properties.buttonId
+                )
+            }
         }
     }
 }
@@ -294,23 +326,64 @@ fun EditButtonDialog(
         confirmButton = {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Start // Align confirm button to the start (left)
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Button(onClick = {
-                    buttonProperties.displayName = displayName
-                    buttonProperties.soundName = soundName
-                    buttonProperties.groupName = groupName
-                    buttonProperties.isGroup = isGroup
-                    buttonProperties.isVisible = isVisible
-                    onConfirm(buttonProperties)
-                }) {
+                Button(
+                    onClick = {
+                        buttonProperties.displayName = displayName
+                        buttonProperties.soundName = soundName
+                        buttonProperties.groupName = groupName
+                        buttonProperties.isGroup = isGroup
+                        buttonProperties.isVisible = isVisible
+                        onConfirm(buttonProperties)
+                        onDismiss()
+                    }
+                ) {
                     Text("Confirm")
                 }
-                Spacer(modifier = Modifier.weight(1f))
-                Button(onClick = onDismiss) {
+                Button(
+                    onClick = onDismiss
+                ) {
                     Text("Cancel")
                 }
             }
         }
     )
+}
+
+@Composable
+fun SecondScreen(buttonPropertiesList: MutableList<ButtonProperties>, parentButtonId: Int) {
+    // Filter button properties based on parentButtonId
+    val filteredButtons = buttonPropertiesList.filter { it.parentButtonId == parentButtonId }
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        for (properties in filteredButtons) {
+            Box(
+                modifier = Modifier
+                    .padding(4.dp)
+                    .aspectRatio(1f)
+                    .fillMaxWidth()
+                    .clickable {
+                        // Handle navigation or any other action on button click if needed
+                    }
+            ) {
+                Button(
+                    onClick = {
+                        // Handle button click as needed
+                    },
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.LightGray, shape = RectangleShape), // Background color and shape
+                    shape = RectangleShape, // Button shape
+                    content = {
+                        Text(
+                            text = properties.displayName,
+                            color = Color.White, // Text color
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                )
+            }
+        }
+    }
 }

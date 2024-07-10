@@ -129,6 +129,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         super.onDestroy()
     }
 }
+
 @Composable
 fun MyApp(
     buttonPropertiesList: MutableList<ButtonProperties>,
@@ -214,7 +215,6 @@ fun MyApp(
         }
     }
 }
-
 @Composable
 fun EditButtonDialog(
     buttonProperties: ButtonProperties,
@@ -291,20 +291,24 @@ fun EditButtonDialog(
             }
         },
         confirmButton = {
-            Button(onClick = {
-                buttonProperties.displayName = displayName
-                buttonProperties.soundName = soundName
-                buttonProperties.groupName = groupName
-                buttonProperties.isGroup = isGroup
-                buttonProperties.isVisible = isVisible
-                onConfirm(buttonProperties)
-            }) {
-                Text("Confirm")
-            }
-        },
-        dismissButton = {
-            Button(onClick = onDismiss) {
-                Text("Cancel")
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Start // Align confirm button to the start (left)
+            ) {
+                Button(onClick = {
+                    buttonProperties.displayName = displayName
+                    buttonProperties.soundName = soundName
+                    buttonProperties.groupName = groupName
+                    buttonProperties.isGroup = isGroup
+                    buttonProperties.isVisible = isVisible
+                    onConfirm(buttonProperties)
+                }) {
+                    Text("Confirm")
+                }
+                Spacer(modifier = Modifier.weight(1f))
+                Button(onClick = onDismiss) {
+                    Text("Cancel")
+                }
             }
         }
     )

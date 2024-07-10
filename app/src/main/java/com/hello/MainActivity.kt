@@ -187,21 +187,18 @@ fun MyApp(
                             .padding(4.dp)
                             .aspectRatio(1f)
                             .fillMaxWidth()
-                            .clickable {
+                    ) {
+                        Button(
+                            onClick = {
                                 if (properties.isGroup) {
                                     // Navigate to second screen for this group
                                     navigateToSecondScreen.value = true
                                     selectedButtonProperties.value = properties
+                                } else if (isEditMode) {
+                                    // Edit mode: Select button for editing
+                                    selectedButtonProperties.value = properties
                                 } else {
                                     // Handle other actions or navigation if needed
-                                }
-                            }
-                    ) {
-                        Button(
-                            onClick = {
-                                if (isEditMode) {
-                                    selectedButtonProperties.value = properties
-                                } else if (!properties.isGroup) {
                                     speakOut(properties.soundName)
                                 }
                             },
@@ -221,7 +218,7 @@ fun MyApp(
                 }
             }
         }
-        if (selectedButtonProperties.value != null) {
+        if (selectedButtonProperties.value != null && isEditMode) {
             EditButtonDialog(
                 buttonProperties = selectedButtonProperties.value!!,
                 onDismiss = { selectedButtonProperties.value = null },
@@ -236,9 +233,7 @@ fun MyApp(
         }
         if (navigateToSecondScreen.value) {
             selectedButtonProperties.value?.let { properties ->
-                // Filter the list to find buttons with the same group name
                 val groupButtons = buttonPropertiesList.filter { it.groupName == properties.groupName }
-                // Navigate to second screen with the group buttons
                 SecondScreen(
                     buttonPropertiesList = groupButtons.toMutableList(),
                     parentButtonId = properties.buttonId

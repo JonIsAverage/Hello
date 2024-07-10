@@ -152,6 +152,12 @@ fun MyApp(
     val navigateToSecondScreen = remember { mutableStateOf(false) }
     val selectedButtonProperties = remember { mutableStateOf<ButtonProperties?>(null) }
 
+    // Function to navigate to startup page
+    val navigateToStartup = {
+        navigateToSecondScreen.value = false
+        selectedButtonProperties.value = null
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -161,13 +167,13 @@ fun MyApp(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(bottom = 8.dp),
-            horizontalArrangement = Arrangement.End,
+            horizontalArrangement = Arrangement.SpaceBetween, // Ensures buttons are spaced apart
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            if (isEditMode) {
-                Button(onClick = doneEditing) {
-                    Text("Done")
-                }
+            Button(
+                onClick = navigateToStartup,
+            ) {
+                Text("Home")
             }
             Button(onClick = toggleEditMode) {
                 Text(text = if (isEditMode) "Cancel Edit Mode" else "Edit")
@@ -236,7 +242,8 @@ fun MyApp(
                 val groupButtons = buttonPropertiesList.filter { it.groupName == properties.groupName }
                 SecondScreen(
                     buttonPropertiesList = groupButtons.toMutableList(),
-                    parentButtonId = properties.buttonId
+                    parentButtonId = properties.buttonId,
+                    navigateToStartup = navigateToStartup // Pass the navigateToStartup function
                 )
             }
         }
@@ -347,7 +354,11 @@ fun EditButtonDialog(
 }
 
 @Composable
-fun SecondScreen(buttonPropertiesList: MutableList<ButtonProperties>, parentButtonId: Int) {
+fun SecondScreen(
+    buttonPropertiesList: MutableList<ButtonProperties>,
+    parentButtonId: Int,
+    navigateToStartup: () -> Unit // Function to navigate back to the startup page
+) {
     // Filter button properties based on parentButtonId
     val filteredButtons = buttonPropertiesList.filter { it.parentButtonId == parentButtonId }
 

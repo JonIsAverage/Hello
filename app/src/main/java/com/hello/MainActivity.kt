@@ -176,8 +176,21 @@ fun MyApp(
             ) {
                 Text("Home")
             }
-            Button(onClick = toggleEditMode) {
-                Text(text = if (isEditMode) "Cancel Edit Mode" else "Edit")
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                if (isEditMode) {
+                    Button(onClick = doneEditing) {
+                        Text("Done")
+                    }
+                }
+
+                Button(onClick = toggleEditMode) {
+                    Text(
+                        text = if (isEditMode) "Cancel Edit Mode" else "Edit"
+                    )
+                }
             }
         }
         LazyVerticalGrid(

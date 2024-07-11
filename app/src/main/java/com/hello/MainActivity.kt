@@ -6,28 +6,43 @@ import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.io.File
-import java.util.*
-import androidx.compose.runtime.snapshots.SnapshotStateList
-import java.util.function.UnaryOperator
+import java.util.Locale
 
 private const val TAG = "MainActivity"
 
@@ -97,15 +112,57 @@ object ButtonPropertiesManager {
     }
 }
 
+@Serializable
+data class PasscodeProperties(
+    var passCode: String = ""
+)
+
+object PasscodePropertiesManager {
+    private const val TAG = "PasscodePropertiesManager"
+
+    fun savePasscodeProperties(
+        passcodeProperties: PasscodeProperties,
+        passcodePropertiesFile: File
+    ) {
+        try {
+            val json = Json.encodeToString(passcodeProperties)
+            passcodePropertiesFile.writeText(json)
+            Log.d(TAG, "Passcode saved: $json")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error saving passcode", e)
+        }
+    }
+
+    fun loadPasscodeProperties(
+        passcodePropertiesFile: File
+    ): PasscodeProperties {
+        return try {
+            if (passcodePropertiesFile.exists()) {
+                val json = passcodePropertiesFile.readText()
+                Log.d(TAG, "Passcode loaded: $json")
+                Json.decodeFromString(json)
+            } else {
+                PasscodeProperties()
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error loading passcode", e)
+            PasscodeProperties()
+        }
+    }
+}
+
 class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
     private var isEditMode by mutableStateOf(false)
     private lateinit var textToSpeech: TextToSpeech
+    private lateinit var passcodeProperties: PasscodeProperties
     private var buttonPropertiesList by mutableStateOf(mutableListOf<ButtonProperties>())
     private val buttonPropertiesFile by lazy { File(filesDir, "button_properties.json") }
+    private val passcodePropertiesFile by lazy { File(filesDir, "passcode_properties.json") }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        passcodeProperties = PasscodePropertiesManager.loadPasscodeProperties(passcodePropertiesFile)
         buttonPropertiesList = ButtonPropertiesManager.loadButtonProperties(buttonPropertiesFile)
         setContent {
             MyApp(
@@ -117,7 +174,12 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                     isEditMode = false
                 },
                 speakOut = { text -> speakOut(text) },
-                buttonPropertiesFile = buttonPropertiesFile // Pass the file to MyApp
+                buttonPropertiesFile = buttonPropertiesFile,
+                passcodeProperties = passcodeProperties,
+                updatePasscode = { newPasscode ->
+                    passcodeProperties = newPasscode
+                    PasscodePropertiesManager.savePasscodeProperties(passcodeProperties, passcodePropertiesFile)
+                }
             )
         }
         textToSpeech = TextToSpeech(this, this)
@@ -156,10 +218,14 @@ fun MyApp(
     toggleEditMode: () -> Unit,
     doneEditing: () -> Unit,
     speakOut: (String) -> Unit,
-    buttonPropertiesFile: File // Add the file parameter
+    buttonPropertiesFile: File,
+    passcodeProperties: PasscodeProperties,
+    updatePasscode: (PasscodeProperties) -> Unit
 ) {
     val navigateToSecondScreen = remember { mutableStateOf(false) }
     val selectedButtonProperties = remember { mutableStateOf<ButtonProperties?>(null) }
+    var showPasscodeDialog by remember { mutableStateOf(false) }
+    var showCreatePasscodeDialog by remember { mutableStateOf(false) }
 
     // Function to navigate to startup page
     val navigateToStartup = {
@@ -179,13 +245,18 @@ fun MyApp(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Button(
-                onClick = navigateToStartup,
-            ) {
+            Button(onClick = navigateToStartup) {
                 Text("Home")
             }
-            Button(onClick = toggleEditMode) {
-                Text(text = if (isEditMode) "Cancel Edit Mode" else "Edit")
+            Spacer(modifier = Modifier.weight(1f))
+            Button(onClick = {
+                if (passcodeProperties.passCode.isNotEmpty()) {
+                    showPasscodeDialog = true
+                } else {
+                    showCreatePasscodeDialog = true
+                }
+            }) {
+                Text("Edit")
             }
         }
         val mainPageButtons = buttonPropertiesList.filter { it.hierarchyId == 1 && it.parentButtonId == 0 }
@@ -262,6 +333,30 @@ fun MyApp(
                     speakOut = speakOut // Pass speakOut here
                 )
             }
+        }
+        // Dialogs for passcode
+        if (showPasscodeDialog) {
+            PasscodeDialog(
+                passcodeProperties = passcodeProperties,
+                onDismissRequest = { showPasscodeDialog = false },
+                onSubmit = { enteredPasscode ->
+                    if (enteredPasscode == passcodeProperties.passCode) {
+                        toggleEditMode()
+                    } else {
+                        // Handle incorrect passcode
+                    }
+                }
+            )
+        }
+        if (showCreatePasscodeDialog) {
+            CreatePasscodeDialog(
+                onDismissRequest = { showCreatePasscodeDialog = false },
+                onSubmit = { newPasscode ->
+                    passcodeProperties.passCode = newPasscode
+                    updatePasscode(passcodeProperties)
+                    toggleEditMode()
+                }
+            )
         }
     }
 }
@@ -472,4 +567,97 @@ fun SecondScreen(
             )
         }
     }
+}
+
+@Composable
+fun PasscodeDialog(
+    passcodeProperties: PasscodeProperties,
+    onDismissRequest: () -> Unit,
+    onSubmit: (String) -> Unit
+) {
+    var passcode by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismissRequest,
+        title = { Text(text = "Enter Passcode") },
+        text = {
+            Column {
+                Text("Please enter your passcode.")
+                TextField(
+                    value = passcode,
+                    onValueChange = { passcode = it },
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation()
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    onSubmit(passcode)
+                    onDismissRequest()
+                }
+            ) {
+                Text("Submit")
+            }
+        },
+        dismissButton = {
+            Button(onClick = onDismissRequest) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
+@Composable
+fun CreatePasscodeDialog(
+    onDismissRequest: () -> Unit,
+    onSubmit: (String) -> Unit
+) {
+    var passcode by remember { mutableStateOf("") }
+    var confirmPasscode by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismissRequest,
+        title = { Text(text = "Create Passcode") },
+        text = {
+            Column {
+                Text("Please create a new passcode.")
+                TextField(
+                    value = passcode,
+                    onValueChange = { passcode = it },
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(),
+                    label = { Text("Passcode") }
+                )
+                TextField(
+                    value = confirmPasscode,
+                    onValueChange = { confirmPasscode = it },
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(),
+                    label = { Text("Confirm Passcode") }
+                )
+                if (passcode != confirmPasscode) {
+                    Text("Passcodes do not match", color = Color.Red)
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (passcode == confirmPasscode) {
+                        onSubmit(passcode)
+                        onDismissRequest()
+                    }
+                }
+            ) {
+                Text("Submit")
+            }
+        },
+        dismissButton = {
+            Button(onClick = onDismissRequest) {
+                Text("Cancel")
+            }
+        }
+    )
 }

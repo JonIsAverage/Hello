@@ -26,6 +26,8 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.io.File
 import java.util.*
+import androidx.compose.runtime.snapshots.SnapshotStateList
+import java.util.function.UnaryOperator
 
 private const val TAG = "MainActivity"
 
@@ -255,7 +257,8 @@ fun MyApp(
                     parentButtonId = properties.buttonId,
                     navigateToStartup = navigateToStartup,
                     isEditMode = isEditMode,
-                    buttonPropertiesFile = buttonPropertiesFile
+                    buttonPropertiesFile = buttonPropertiesFile,
+                    doneEditing = doneEditing
                 )
             }
         }
@@ -359,11 +362,16 @@ fun SecondScreen(
     parentButtonId: Int,
     isEditMode: Boolean,
     navigateToStartup: () -> Unit,
-    buttonPropertiesFile: File // Add the file parameter
+    buttonPropertiesFile: File,
+    doneEditing: () -> Unit
 ) {
+    // Ensure childButtons are remembered and mutable
     val childButtons = remember {
+        // Load existing buttons from buttonPropertiesList filtered by parentButtonId and hierarchyId
         val existingButtons = buttonPropertiesList.filter { it.parentButtonId == parentButtonId && it.hierarchyId == 2 }
+
         if (existingButtons.isEmpty()) {
+            // If no existing buttons, create new buttons
             val newButtons = List(24) { index ->
                 ButtonProperties(
                     buttonId = buttonPropertiesList.size + index + 1,
@@ -376,14 +384,19 @@ fun SecondScreen(
                     groupName = ""
                 )
             }
+            // Add new buttons to the main buttonPropertiesList
             buttonPropertiesList.addAll(newButtons)
+            // Save the updated button properties list
             ButtonPropertiesManager.saveButtonProperties(buttonPropertiesList, buttonPropertiesFile)
-            newButtons
+            // Return the new buttons as mutable state list
+            newButtons.toMutableStateList()
         } else {
-            existingButtons
+            // Return existing buttons as mutable state list
+            existingButtons.toMutableStateList()
         }
-    }.toMutableStateList()
+    }
 
+    // Remember the selected button properties for editing
     val selectedButtonProperties = remember { mutableStateOf<ButtonProperties?>(null) }
 
     Column(
@@ -429,6 +442,8 @@ fun SecondScreen(
                 }
             }
         }
+
+        // EditButtonDialog for editing selectedButtonProperties
         if (selectedButtonProperties.value != null && isEditMode) {
             EditButtonDialog(
                 buttonProperties = selectedButtonProperties.value!!,
@@ -436,11 +451,21 @@ fun SecondScreen(
                     selectedButtonProperties.value = null
                 },
                 onConfirm = { updatedProperties ->
+                    // Find the index of the selected button in childButtons
                     val index = childButtons.indexOfFirst { it == selectedButtonProperties.value }
                     if (index != -1) {
+                        // Update the button at the found index with updated properties
                         childButtons[index] = updatedProperties
+                        // Update the original buttonPropertiesList with updated properties
+                        buttonPropertiesList.replaceAll {
+                            if (it == selectedButtonProperties.value) updatedProperties else it
+                        }
+                        // Save the updated button properties list to file
                         ButtonPropertiesManager.saveButtonProperties(buttonPropertiesList, buttonPropertiesFile)
+                        // Trigger doneEditing callback to finalize changes
+                        doneEditing()
                     }
+                    // Reset selectedButtonProperties after editing
                     selectedButtonProperties.value = null
                 }
             )

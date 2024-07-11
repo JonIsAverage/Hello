@@ -12,11 +12,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.material3.Button
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -45,33 +41,13 @@ data class ButtonProperties(
     var parentButtonId: Int = 0
 )
 
+object ButtonPropertiesManager {
+    private val TAG = "ButtonPropertiesManager"
 
-class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
-
-    private var isEditMode by mutableStateOf(false)
-    private lateinit var textToSpeech: TextToSpeech
-    private var buttonPropertiesList by mutableStateOf(mutableListOf<ButtonProperties>())
-    private val buttonPropertiesFile by lazy { File(filesDir, "button_properties.json") }
-
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        buttonPropertiesList = loadButtonProperties()
-        setContent {
-            MyApp(
-                buttonPropertiesList = buttonPropertiesList,
-                isEditMode = isEditMode,
-                toggleEditMode = { isEditMode = !isEditMode },
-                doneEditing = {
-                    saveButtonProperties(buttonPropertiesList)
-                    isEditMode = false
-                },
-                speakOut = { text -> speakOut(text) }
-            )
-        }
-        textToSpeech = TextToSpeech(this, this)
-    }
-
-    private fun saveButtonProperties(propertiesList: List<ButtonProperties>) {
+    fun saveButtonProperties(
+        propertiesList: List<ButtonProperties>,
+        buttonPropertiesFile: File
+    ) {
         try {
             val json = Json.encodeToString(propertiesList)
             buttonPropertiesFile.writeText(json)
@@ -81,7 +57,9 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         }
     }
 
-    private fun loadButtonProperties(): MutableList<ButtonProperties> {
+    fun loadButtonProperties(
+        buttonPropertiesFile: File
+    ): MutableList<ButtonProperties> {
         return try {
             if (buttonPropertiesFile.exists()) {
                 val json = buttonPropertiesFile.readText()
@@ -114,6 +92,33 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 )
             }
         }
+    }
+}
+
+class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
+
+    private var isEditMode by mutableStateOf(false)
+    private lateinit var textToSpeech: TextToSpeech
+    private var buttonPropertiesList by mutableStateOf(mutableListOf<ButtonProperties>())
+    private val buttonPropertiesFile by lazy { File(filesDir, "button_properties.json") }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        buttonPropertiesList = ButtonPropertiesManager.loadButtonProperties(buttonPropertiesFile)
+        setContent {
+            MyApp(
+                buttonPropertiesList = buttonPropertiesList,
+                isEditMode = isEditMode,
+                toggleEditMode = { isEditMode = !isEditMode },
+                doneEditing = {
+                    ButtonPropertiesManager.saveButtonProperties(buttonPropertiesList, buttonPropertiesFile)
+                    isEditMode = false
+                },
+                speakOut = { text -> speakOut(text) },
+                buttonPropertiesFile = buttonPropertiesFile // Pass the file to MyApp
+            )
+        }
+        textToSpeech = TextToSpeech(this, this)
     }
 
     private fun speakOut(text: String) {
@@ -148,7 +153,8 @@ fun MyApp(
     isEditMode: Boolean,
     toggleEditMode: () -> Unit,
     doneEditing: () -> Unit,
-    speakOut: (String) -> Unit
+    speakOut: (String) -> Unit,
+    buttonPropertiesFile: File // Add the file parameter
 ) {
     val navigateToSecondScreen = remember { mutableStateOf(false) }
     val selectedButtonProperties = remember { mutableStateOf<ButtonProperties?>(null) }
@@ -158,8 +164,6 @@ fun MyApp(
         navigateToSecondScreen.value = false
         selectedButtonProperties.value = null
     }
-
-    val filteredButtonPropertiesList = buttonPropertiesList.filter { it.hierarchyId == 1 }
 
     Column(
         modifier = Modifier
@@ -178,31 +182,19 @@ fun MyApp(
             ) {
                 Text("Home")
             }
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                if (isEditMode) {
-                    Button(onClick = doneEditing) {
-                        Text("Done")
-                    }
-                }
-
-                Button(onClick = toggleEditMode) {
-                    Text(
-                        text = if (isEditMode) "Cancel Edit Mode" else "Edit"
-                    )
-                }
+            Button(onClick = toggleEditMode) {
+                Text(text = if (isEditMode) "Cancel Edit Mode" else "Edit")
             }
         }
+        val mainPageButtons = buttonPropertiesList.filter { it.hierarchyId == 1 && it.parentButtonId == 0 }
         LazyVerticalGrid(
             columns = GridCells.Adaptive(minSize = 100.dp),
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f)
         ) {
-            items(filteredButtonPropertiesList.size) { index ->
-                val properties = filteredButtonPropertiesList[index]
+            items(mainPageButtons.size) { index ->
+                val properties = mainPageButtons[index]
                 if (properties.isVisible || isEditMode) {
                     Box(
                         modifier = Modifier
@@ -258,12 +250,14 @@ fun MyApp(
                 SecondScreen(
                     buttonPropertiesList = buttonPropertiesList,
                     parentButtonId = properties.buttonId,
-                    navigateToStartup = navigateToStartup // Pass the navigateToStartup function
+                    navigateToStartup = navigateToStartup, // Pass the navigateToStartup function
+                    buttonPropertiesFile = buttonPropertiesFile // Pass the file to SecondScreen
                 )
             }
         }
     }
 }
+
 
 @Composable
 fun EditButtonDialog(
@@ -319,50 +313,36 @@ fun EditButtonDialog(
                         }
                     )
                 }
-                Spacer(modifier = Modifier.height(16.dp))
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Checkbox(checked = isGroup, onCheckedChange = { isChecked ->
-                            isGroup = isChecked
-                        })
-                        Text("Group?")
-                    }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Checkbox(checked = isVisible, onCheckedChange = { isChecked ->
-                            isVisible = isChecked
-                        })
-                        Text("Visible")
-                    }
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(checked = isGroup, onCheckedChange = { isChecked -> isGroup = isChecked })
+                    Text(text = "Group?")
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(checked = isVisible, onCheckedChange = { isChecked -> isVisible = isChecked })
+                    Text(text = "Visible?")
                 }
             }
         },
         confirmButton = {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Button(
-                    onClick = {
-                        buttonProperties.displayName = displayName
-                        buttonProperties.soundName = soundName
-                        buttonProperties.groupName = groupName
-                        buttonProperties.isGroup = isGroup
-                        buttonProperties.isVisible = isVisible
-                        onConfirm(buttonProperties)
-                        onDismiss()
-                    }
-                ) {
-                    Text("Confirm")
-                }
-                Button(
-                    onClick = onDismiss
-                ) {
-                    Text("Cancel")
-                }
+            TextButton(onClick = {
+                onConfirm(
+                    buttonProperties.copy(
+                        displayName = displayName,
+                        soundName = soundName,
+                        groupName = groupName,
+                        isGroup = isGroup,
+                        isVisible = isVisible
+                    )
+                )
+            }) {
+                Text("Confirm")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
             }
         }
     )
@@ -372,47 +352,63 @@ fun EditButtonDialog(
 fun SecondScreen(
     buttonPropertiesList: MutableList<ButtonProperties>,
     parentButtonId: Int,
-    navigateToStartup: () -> Unit // Function to navigate back to the startup page
+    navigateToStartup: () -> Unit,
+    buttonPropertiesFile: File // Add the file parameter
 ) {
-    // Filter button properties based on parentButtonId and hierarchyId
-    val filteredButtons = buttonPropertiesList.filter {
-        it.parentButtonId == parentButtonId && it.hierarchyId == 2
+    val childButtons = remember {
+        val existingButtons = buttonPropertiesList.filter { it.parentButtonId == parentButtonId && it.hierarchyId == 2 }
+        if (existingButtons.isEmpty()) {
+            val newButtons = List(24) { index ->
+                ButtonProperties(
+                    buttonId = buttonPropertiesList.size + index + 1,
+                    hierarchyId = 2,
+                    parentButtonId = parentButtonId,
+                    displayName = "Button ${buttonPropertiesList.size + index + 1}",
+                    soundName = "",
+                    isVisible = true,
+                    isGroup = false,
+                    groupName = ""
+                )
+            }
+            buttonPropertiesList.addAll(newButtons)
+            ButtonPropertiesManager.saveButtonProperties(buttonPropertiesList, buttonPropertiesFile)
+            newButtons
+        } else {
+            existingButtons
+        }
     }
 
-    // Check if filteredButtons is empty, generate new buttons if so
-    if (filteredButtons.isEmpty()) {
-        val newButtons = generateNewButtons(parentButtonId)
-        buttonPropertiesList.addAll(newButtons)
-    }
-
-    Column(modifier = Modifier.fillMaxSize()) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(8.dp)
+    ) {
         LazyVerticalGrid(
             columns = GridCells.Adaptive(minSize = 100.dp),
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
         ) {
-            items(filteredButtons.size) { index ->
-                val properties = filteredButtons[index]
+            items(childButtons.size) { index ->
+                val properties = childButtons[index]
                 Box(
                     modifier = Modifier
                         .padding(4.dp)
                         .aspectRatio(1f)
                         .fillMaxWidth()
-                        .clickable {
-                            // Handle navigation or any other action on button click if needed
-                        }
                 ) {
                     Button(
                         onClick = {
-                            // Handle button click as needed
+                            // Handle child button actions or navigation if needed
                         },
                         modifier = Modifier
                             .fillMaxSize()
-                            .background(Color.LightGray, shape = RectangleShape), // Background color and shape
-                        shape = RectangleShape, // Button shape
+                            .background(if (properties.isVisible) Color.LightGray else Color.Gray),
+                        shape = RectangleShape,
                         content = {
                             Text(
-                                text = properties.displayName,
-                                color = Color.White, // Text color
+                                text = if (properties.isGroup) properties.groupName else properties.displayName,
+                                color = Color.White,
                                 textAlign = TextAlign.Center
                             )
                         }
@@ -420,18 +416,5 @@ fun SecondScreen(
                 }
             }
         }
-    }
-}
-
-// Function to generate new buttons if none exist for the parentButtonId and hierarchyId 2
-private fun generateNewButtons(parentButtonId: Int): List<ButtonProperties> {
-    return List(24) { index ->
-        ButtonProperties(
-            buttonId = index + 1, // Example: You may need to adjust this logic based on your actual requirements
-            hierarchyId = 2,
-            displayName = "Button ${index + 1}",
-            parentButtonId = parentButtonId
-            // Add other default values as needed
-        )
     }
 }

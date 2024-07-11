@@ -258,14 +258,13 @@ fun MyApp(
                     navigateToStartup = navigateToStartup,
                     isEditMode = isEditMode,
                     buttonPropertiesFile = buttonPropertiesFile,
-                    doneEditing = doneEditing
+                    doneEditing = doneEditing,
+                    speakOut = speakOut // Pass speakOut here
                 )
             }
         }
     }
 }
-
-
 
 @Composable
 fun EditButtonDialog(
@@ -363,7 +362,8 @@ fun SecondScreen(
     isEditMode: Boolean,
     navigateToStartup: () -> Unit,
     buttonPropertiesFile: File,
-    doneEditing: () -> Unit
+    doneEditing: () -> Unit,
+    speakOut: (String) -> Unit // Add speakOut as a parameter
 ) {
     // Ensure childButtons are remembered and mutable
     val childButtons = remember {
@@ -377,7 +377,7 @@ fun SecondScreen(
                     buttonId = buttonPropertiesList.size + index + 1,
                     hierarchyId = 2,
                     parentButtonId = parentButtonId,
-                    displayName = "Button ${buttonPropertiesList.size + index + 1}",
+                    displayName = "",
                     soundName = "",
                     isVisible = true,
                     isGroup = false,
@@ -420,11 +420,12 @@ fun SecondScreen(
                 ) {
                     Button(
                         onClick = {
-                            if (isEditMode) {
+                            if (!isEditMode && properties.isVisible && !properties.isGroup) {
+                                speakOut(properties.soundName)
+                            } else if (isEditMode) {
                                 selectedButtonProperties.value = properties.copy()
                             } else {
-                                // Handle child button actions or navigation if needed
-                                // For now, let's leave this empty or handle specific actions
+                                // Handle other scenarios if needed
                             }
                         },
                         modifier = Modifier

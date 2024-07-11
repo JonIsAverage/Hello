@@ -232,7 +232,7 @@ fun MyApp(
                 }
             }
         }
-        if (selectedButtonProperties.value != null && isEditMode) {
+        if (selectedButtonProperties.value != null && isEditMode && !navigateToSecondScreen.value) {
             EditButtonDialog(
                 buttonProperties = selectedButtonProperties.value!!,
                 onDismiss = {
@@ -254,12 +254,15 @@ fun MyApp(
                     buttonPropertiesList = buttonPropertiesList,
                     parentButtonId = properties.buttonId,
                     navigateToStartup = navigateToStartup,
+                    isEditMode = isEditMode,
                     buttonPropertiesFile = buttonPropertiesFile
                 )
             }
         }
     }
 }
+
+
 
 @Composable
 fun EditButtonDialog(
@@ -354,6 +357,7 @@ fun EditButtonDialog(
 fun SecondScreen(
     buttonPropertiesList: MutableList<ButtonProperties>,
     parentButtonId: Int,
+    isEditMode: Boolean,
     navigateToStartup: () -> Unit,
     buttonPropertiesFile: File // Add the file parameter
 ) {
@@ -378,7 +382,9 @@ fun SecondScreen(
         } else {
             existingButtons
         }
-    }
+    }.toMutableStateList()
+
+    val selectedButtonProperties = remember { mutableStateOf<ButtonProperties?>(null) }
 
     Column(
         modifier = Modifier
@@ -401,7 +407,12 @@ fun SecondScreen(
                 ) {
                     Button(
                         onClick = {
-                            // Handle child button actions or navigation if needed
+                            if (isEditMode) {
+                                selectedButtonProperties.value = properties.copy()
+                            } else {
+                                // Handle child button actions or navigation if needed
+                                // For now, let's leave this empty or handle specific actions
+                            }
                         },
                         modifier = Modifier
                             .fillMaxSize()
@@ -417,6 +428,22 @@ fun SecondScreen(
                     )
                 }
             }
+        }
+        if (selectedButtonProperties.value != null && isEditMode) {
+            EditButtonDialog(
+                buttonProperties = selectedButtonProperties.value!!,
+                onDismiss = {
+                    selectedButtonProperties.value = null
+                },
+                onConfirm = { updatedProperties ->
+                    val index = childButtons.indexOfFirst { it == selectedButtonProperties.value }
+                    if (index != -1) {
+                        childButtons[index] = updatedProperties
+                        ButtonPropertiesManager.saveButtonProperties(buttonPropertiesList, buttonPropertiesFile)
+                    }
+                    selectedButtonProperties.value = null
+                }
+            )
         }
     }
 }

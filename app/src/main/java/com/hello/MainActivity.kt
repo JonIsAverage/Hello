@@ -204,12 +204,12 @@ fun MyApp(
                     ) {
                         Button(
                             onClick = {
-                                if (properties.isGroup) {
+                                if (isEditMode) {
+                                    // Edit mode: Select button for editing
+                                    selectedButtonProperties.value = properties.copy()
+                                } else if (properties.isGroup) {
                                     // Navigate to second screen for this group
                                     navigateToSecondScreen.value = true
-                                    selectedButtonProperties.value = properties
-                                } else if (isEditMode) {
-                                    // Edit mode: Select button for editing
                                     selectedButtonProperties.value = properties
                                 } else {
                                     // Handle other actions or navigation if needed
@@ -235,13 +235,16 @@ fun MyApp(
         if (selectedButtonProperties.value != null && isEditMode) {
             EditButtonDialog(
                 buttonProperties = selectedButtonProperties.value!!,
-                onDismiss = { selectedButtonProperties.value = null },
+                onDismiss = {
+                    selectedButtonProperties.value = null
+                },
                 onConfirm = { updatedProperties ->
                     val index = buttonPropertiesList.indexOfFirst { it == selectedButtonProperties.value }
                     if (index != -1) {
                         buttonPropertiesList[index] = updatedProperties
                     }
                     selectedButtonProperties.value = null
+                    doneEditing() // Save changes
                 }
             )
         }
@@ -250,14 +253,13 @@ fun MyApp(
                 SecondScreen(
                     buttonPropertiesList = buttonPropertiesList,
                     parentButtonId = properties.buttonId,
-                    navigateToStartup = navigateToStartup, // Pass the navigateToStartup function
-                    buttonPropertiesFile = buttonPropertiesFile // Pass the file to SecondScreen
+                    navigateToStartup = navigateToStartup,
+                    buttonPropertiesFile = buttonPropertiesFile
                 )
             }
         }
     }
 }
-
 
 @Composable
 fun EditButtonDialog(

@@ -159,6 +159,8 @@ fun MyApp(
         selectedButtonProperties.value = null
     }
 
+    val filteredButtonPropertiesList = buttonPropertiesList.filter { it.hierarchyId == 1 }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -199,8 +201,8 @@ fun MyApp(
                 .fillMaxWidth()
                 .weight(1f)
         ) {
-            items(buttonPropertiesList.size) { index ->
-                val properties = buttonPropertiesList[index]
+            items(filteredButtonPropertiesList.size) { index ->
+                val properties = filteredButtonPropertiesList[index]
                 if (properties.isVisible || isEditMode) {
                     Box(
                         modifier = Modifier

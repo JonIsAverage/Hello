@@ -16,6 +16,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.text.BasicTextField
@@ -36,6 +38,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -251,14 +254,32 @@ fun MyApp(
                 Text("Home")
             }
             Spacer(modifier = Modifier.weight(1f))
-            Button(onClick = {
-                if (passcodeProperties.passCode.isNotEmpty()) {
-                    showPasscodeDialog = true
-                } else {
-                    showCreatePasscodeDialog = true
+            if (isEditMode) {
+                Row( // Use Row for horizontal centering
+                    modifier = Modifier
+                        .background(Color.LightGray) // Gray background
+                ) {
+                    Text(
+                        text = "Edit Mode Active",
+                        color = Color.Blue,
+                        fontWeight = FontWeight.Bold,
+                        textAlign =TextAlign.Center
+                    )
                 }
-            }) {
-                Text("Edit")
+                Button(onClick = doneEditing) {
+                    Text("Done Editing")
+                }
+            }
+            else {
+                Button(onClick = {
+                    if (passcodeProperties.passCode.isNotEmpty()) {
+                        showPasscodeDialog = true
+                    } else {
+                        showCreatePasscodeDialog = true
+                    }
+                }) {
+                    Text("Edit")
+                }
             }
         }
         val mainPageButtons = buttonPropertiesList.filter { it.hierarchyId == 1 && it.parentButtonId == 0 }

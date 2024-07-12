@@ -26,6 +26,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -38,6 +39,7 @@ import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.delay
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -576,6 +578,8 @@ fun PasscodeDialog(
     onSubmit: (String) -> Unit
 ) {
     var passcode by remember { mutableStateOf("") }
+    var showMessage by remember { mutableStateOf(false) } // Flag to control message visibility
+    var message by remember { mutableStateOf("") }
 
     AlertDialog(
         onDismissRequest = onDismissRequest,
@@ -589,13 +593,22 @@ fun PasscodeDialog(
                     singleLine = true,
                     visualTransformation = PasswordVisualTransformation()
                 )
+                if (showMessage) {
+                    Text(text = message, color = if (message == "Passcode Correct!") Color.Green else Color.Red)
+                }
             }
         },
         confirmButton = {
             Button(
                 onClick = {
-                    onSubmit(passcode)
-                    onDismissRequest()
+                    val isCorrect = passcode == passcodeProperties.passCode
+                    showMessage = true
+                    message = if (isCorrect) "Passcode Correct!" else "Incorrect Passcode"
+                    if (isCorrect) {
+                        onSubmit(passcode)
+                        onDismissRequest()
+                    }
+                    // Implement logic to potentially dismiss the dialog after showing the message (see next step)
                 }
             ) {
                 Text("Submit")
